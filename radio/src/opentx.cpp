@@ -1360,8 +1360,18 @@ bool getSwitch(int8_t swtch)
     result = switchState((EnumKeys)(SW_BASE+cs_idx-1));
 #endif
   }
+#if ROTARY_ENCODERS > 0
+  else if (cs_idx == SWSRC_REA) {
+    result = REA_DOWN();
+  }
+#endif
+#if ROTARY_ENCODERS > 1
+  else if (cs_idx == SWSRC_REB) {
+    result = REB_DOWN();
+  }
+#endif
   else {
-    cs_idx -= MAX_PSWITCH+1;
+    cs_idx -= MAX_PSWITCH+NUM_ROTARY_ENCODERS+1;
 
     GETSWITCH_RECURSIVE_TYPE mask = ((GETSWITCH_RECURSIVE_TYPE)1 << cs_idx);
     if (s_last_switch_used & mask) {
@@ -3034,15 +3044,11 @@ void evalFunctions()
       uint8_t short_long = 0;
       uint8_t mswitch = 0;
 
-      if (swtch == SWSRC_TRAINER_LONG) {
-        short_long = 2;
-        swtch = SWSRC_TRAINER;
-        mswitch = 0;
-      }
-      else if (swtch == SWSRC_TRAINER_SHORT) {
-        short_long = 1;
-        swtch = SWSRC_TRAINER;
-        mswitch = 0;
+      if (swtch >= SWSRC_TRAINER_SHORT) {
+        swtch -= SWSRC_TRAINER_SHORT;
+        mswitch = (swtch >> 1);
+        short_long = 1+(swtch&1);
+        swtch = SWSRC_TRAINER + mswitch;
       }
       else
 
@@ -3227,7 +3233,7 @@ void evalFunctions()
               if (CFN_FUNC(sd) == FUNC_PLAY_TRACK && param > 250)
                 param = GVAR_VALUE(param-251, getGVarFlightPhase(s_perout_flight_phase, param-251));
 #endif
-              PUSH_CUSTOM_PROMPT(active ? param : param+1, i+1);
+              PUSH_CUSTOM_PROMPT((active||short_long) ? param : param+1, i+1);
             }
           }
         }
@@ -3393,8 +3399,6 @@ void perOut(uint8_t mode, uint8_t tick10ms)
   bitfield_channels_t dirtyChannels = (bitfield_channels_t)-1; // all dirty when mixer starts
 
   do {
-
-    // TRACE("[pass %d]", pass);
 
     bitfield_channels_t passDirtyChannels = 0;
 

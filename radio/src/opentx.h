@@ -395,7 +395,7 @@ enum EnumKeys {
   #define SW_DSM2_BIND  SW_TRN
 #endif
 
-#define MAX_SWITCH    (MAX_PSWITCH+NUM_CSW)
+#define MAX_SWITCH    (MAX_PSWITCH+NUM_ROTARY_ENCODERS+NUM_CSW)
 
 #if defined(PCBTARANIS)
 #define KEY_RIGHT  KEY_PLUS

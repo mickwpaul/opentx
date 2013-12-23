@@ -175,6 +175,7 @@ ISR(TIMER4_COMPA_vect) //Every 0.5ms normally, every 2ms during startup reset
 void pushPrompt(uint16_t prompt)
 {
   /* TODO id */
+  TRACE("pushPrompt(%d)", prompt);
   somo14playlist[somo14WIdx] = prompt;
   somo14WIdx = (somo14WIdx + 1) % QUEUE_LENGTH;
   cli();

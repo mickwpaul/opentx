@@ -315,16 +315,24 @@
 
 #if defined(CPUARM)
   #define TR_CUSTOMSW          "CS1""CS2""CS3""CS4""CS5""CS6""CS7""CS8""CS9""CSA""CSB""CSC""CSD""CSE""CSF""CSG""CSH""CSI""CSJ""CSK""CSL""CSM""CSN""CSO""CSP""CSQ""CSR""CSS""CST""CSU""CSV""CSW"
-#elif defined(PCBGRUVIN9X) || defined(CPUM2561) || defined(CPUM128)
+#elif defined(CPUM2560) || defined(CPUM2561) || defined(CPUM128)
   #define TR_CUSTOMSW          "CS1""CS2""CS3""CS4""CS5""CS6""CS7""CS8""CS9""CSA""CSB""CSC""CSD""CSE""CSF"
 #else
   #define TR_CUSTOMSW          "CS1""CS2""CS3""CS4""CS5""CS6""CS7""CS8""CS9""CSA""CSB""CSC"
 #endif
 
+#if ROTARY_ENCODERS > 1
+  #define TR_ROTARY_ENCODER_SW "REa""REb"
+#elif ROTARY_ENCODERS > 0
+  #define TR_ROTARY_ENCODER_SW "REa"
+#else
+  #define TR_ROTARY_ENCODER_SW
+#endif
+
 #if defined(PCBTARANIS)
   #define TR_VSWITCHES         "SA\300""SA-""SA\301""SB\300""SB-""SB\301""SC\300""SC-""SC\301""SD\300""SD-""SD\301""SE\300""SE-""SE\301""SF\300""SF\301""SG\300""SG-""SG\301""SH\300""SH\301" TR_CUSTOMSW "One"
 #else
-  #define TR_VSWITCHES         TR_9X_3POS_SWITCHES "THR""RUD""ELE""AIL""GEA""TRN" TR_CUSTOMSW "One"
+  #define TR_VSWITCHES         TR_9X_3POS_SWITCHES "THR""RUD""ELE""AIL""GEA""TRN" TR_ROTARY_ENCODER_SW TR_CUSTOMSW "One"
 #endif
 
 #if defined(PCBSKY9X)

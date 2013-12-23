@@ -182,16 +182,6 @@ void pwrOff()
 #endif
 }
 
-#if ROTARY_ENCODERS <= 2
-  #define REA_DOWN()    (~PIND & 0x20)
-  #define REB_DOWN()    (~PIND & 0x10)
-#else
-  #define REA_DOWN()    (0)
-  #define REB_DOWN()    (0)
-#endif
-
-#define ROTENC_DOWN() (REA_DOWN() || REB_DOWN())
-
 FORCEINLINE uint8_t keyDown()
 {
   return ((~PINL) & 0x3F) || ROTENC_DOWN();

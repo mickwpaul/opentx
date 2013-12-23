@@ -180,14 +180,14 @@ long Open9xSim::onKeypress(FXObject*,FXSelector,void*v)
 
 long Open9xSim::onTimeout(FXObject*,FXSelector,void*)
 {
-  if(hasFocus()) {
+  if (hasFocus()) {
     static int keys1[]={
 #if defined(PCBTARANIS)
       KEY_Page_Up,   KEY_MENU,
       KEY_Page_Down, KEY_PAGE,
       KEY_Return,    KEY_ENTER,
       KEY_BackSpace, KEY_EXIT,
-      KEY_Up,     KEY_PLUS,
+      KEY_Up,        KEY_PLUS,
       KEY_Down,      KEY_MINUS,
 #else
       KEY_Return,    KEY_MENU,
@@ -198,7 +198,7 @@ long Open9xSim::onTimeout(FXObject*,FXSelector,void*)
       KEY_Down,      KEY_DOWN,
 #endif
 #if defined(ROTARY_ENCODER_NAVIGATION)
-      KEY_F,  BTN_REa,
+      KEY_F,         BTN_REa,
 #endif
     };
 

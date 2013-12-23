@@ -183,10 +183,14 @@ void pwrOff()
 }
 
 #if ROTARY_ENCODERS <= 2
-#define ROTENC_DOWN() ((~PIND & 0x20) || (~PIND & 0x10))
+  #define REA_DOWN()    (~PIND & 0x20)
+  #define REB_DOWN()    (~PIND & 0x10)
 #else
-#define ROTENC_DOWN() (0)
+  #define REA_DOWN()    (0)
+  #define REB_DOWN()    (0)
 #endif
+
+#define ROTENC_DOWN() (REA_DOWN() || REB_DOWN())
 
 FORCEINLINE uint8_t keyDown()
 {
@@ -278,25 +282,24 @@ FORCEINLINE void readKeysAndTrims()
 
   uint8_t enuk = KEY_MENU;
 
-#if ROTARY_ENCODERS <= 2
-  keys[BTN_REa].input(~PIND & 0x20, BTN_REa);
+#if defined(ROTARY_ENCODERS)
+  keys[BTN_REa].input(REA_DOWN(), BTN_REa);
+  keys[BTN_REb].input(REB_DOWN(), BTN_REb);
 #endif
-  keys[BTN_REb].input(~PIND & 0x10, BTN_REb);
 
   uint8_t tin = ~PINL;
   uint8_t in;
   in = (tin & 0x0f) << 3;
   in |= (tin & 0x30) >> 3;
 
-  for (int i=1; i<7; i++)
-  {
+  for (int i=1; i<7; i++) {
     //INP_B_KEY_MEN 1  .. INP_B_KEY_LFT 6
     keys[enuk].input(in & (1<<i),(EnumKeys)enuk);
     ++enuk;
   }
 
   // Trim switches ...
-  static const pm_uchar crossTrim[] PROGMEM ={
+  static const pm_uchar crossTrim[] PROGMEM = {
     1<<INP_J_TRM_LH_DWN,
     1<<INP_J_TRM_LH_UP,
     1<<INP_J_TRM_LV_DWN,

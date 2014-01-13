@@ -779,10 +779,8 @@ ifneq ($(PCB), TARANIS)
 endif
 
 ifneq ($(FONT), STD)
-  CPPDEFS += -DFONT_$(FONT)
   INCDIRS += fonts/$(shell sh -c "echo $(FONT) | tr '[:upper:]' '[:lower:]'")
 endif
-
 INCDIRS += fonts/std
   
 ifeq ($(THR_TRACE), YES)
@@ -1309,6 +1307,7 @@ clean_list :
 	$(REMOVE) *.lst
 	$(REMOVE) allsrc.cpp
 	$(REMOVE) stamp-opentx.h
+	$(REMOVE) fonts/*/*.lbm
 
 #### Install
 

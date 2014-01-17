@@ -39,18 +39,6 @@
 
 #include <inttypes.h>
 
-#define WARN_THR_BIT  0x01
-#define WARN_BEP_BIT  0x80
-#define WARN_SW_BIT   0x02
-#define WARN_MEM_BIT  0x04
-#define WARN_BVAL_BIT 0x38
-
-#define WARN_THR     (!(g_eeGeneral.warnOpts & WARN_THR_BIT))
-#define WARN_BEP     (!(g_eeGeneral.warnOpts & WARN_BEP_BIT))
-#define WARN_SW      (!(g_eeGeneral.warnOpts & WARN_SW_BIT))
-#define WARN_MEM     (!(g_eeGeneral.warnOpts & WARN_MEM_BIT))
-#define BEEP_VAL     ( (g_eeGeneral.warnOpts & WARN_BVAL_BIT) >>3 )
-
 #if defined(PCBTARANIS)
   #define EEPROM_VER       216
 #elif defined(PCBSKY9X)
@@ -62,6 +50,26 @@
 #else
   #define EEPROM_VER       216
 #endif
+
+#if defined (CPUARM)
+  #define ARM_FIELD(x) x;
+  #define AVR_FIELD(x)
+#else
+  #define ARM_FIELD(x)
+  #define AVR_FIELD(x) x;
+#endif
+
+#define WARN_THR_BIT  0x01
+#define WARN_BEP_BIT  0x80
+#define WARN_SW_BIT   0x02
+#define WARN_MEM_BIT  0x04
+#define WARN_BVAL_BIT 0x38
+
+#define WARN_THR     (!(g_eeGeneral.warnOpts & WARN_THR_BIT))
+#define WARN_BEP     (!(g_eeGeneral.warnOpts & WARN_BEP_BIT))
+#define WARN_SW      (!(g_eeGeneral.warnOpts & WARN_SW_BIT))
+#define WARN_MEM     (!(g_eeGeneral.warnOpts & WARN_MEM_BIT))
+#define BEEP_VAL     ( (g_eeGeneral.warnOpts & WARN_BVAL_BIT) >>3 )
 
 #ifndef PACK
 #define PACK( __Declaration__ ) __Declaration__ __attribute__((__packed__))
@@ -297,6 +305,152 @@ enum BacklightMode {
   e_backlight_mode_on
 };
 
+enum Functions {
+#if defined(CPUARM)
+  FUNC_SAFETY_CH1,
+  FUNC_SAFETY_CH16=FUNC_SAFETY_CH1+15,
+#else
+  FUNC_SAFETY_GROUP1,
+  FUNC_SAFETY_GROUP2,
+  FUNC_SAFETY_GROUP3,
+  FUNC_SAFETY_GROUP4,
+#endif
+  FUNC_TRAINER,
+  FUNC_TRAINER_RUD,
+  FUNC_TRAINER_ELE,
+  FUNC_TRAINER_THR,
+  FUNC_TRAINER_AIL,
+  FUNC_INSTANT_TRIM,
+  FUNC_PLAY_SOUND,
+#if !defined(PCBTARANIS)
+  FUNC_HAPTIC,
+#endif
+  FUNC_RESET,
+  FUNC_VARIO,
+  FUNC_PLAY_TRACK,
+#if !defined(CPUARM)
+  FUNC_PLAY_BOTH,
+#endif
+  FUNC_PLAY_VALUE,
+#if !defined(PCBSTD)
+  FUNC_LOGS,
+#endif
+#if defined(CPUARM)
+  FUNC_VOLUME,
+#endif
+  FUNC_BACKLIGHT,
+#if defined(CPUARM)
+  FUNC_BACKGND_MUSIC,
+  FUNC_BACKGND_MUSIC_PAUSE,
+#endif
+#if defined(GVARS)
+  FUNC_ADJUST_GV1,
+  FUNC_ADJUST_GVLAST = (FUNC_ADJUST_GV1 + (MAX_GVARS-1)),
+#endif
+#if defined(DEBUG)
+  FUNC_TEST, // should remain the last before MAX as not added in companion9x
+#endif
+  FUNC_MAX
+};
+
+#if defined(GVARS)
+  #define IS_ADJUST_GV_FUNCTION(sd)  (CFN_FUNC(sd) >= FUNC_ADJUST_GV1 && CFN_FUNC(sd) <= FUNC_ADJUST_GVLAST)
+#else
+  #define IS_ADJUST_GV_FUNCTION(sd)  (0)
+#endif
+
+#if defined(VOICE)
+  #define HAS_REPEAT_PARAM(sd) (CFN_FUNC(sd) == FUNC_PLAY_SOUND || (CFN_FUNC(sd) >= FUNC_PLAY_TRACK && CFN_FUNC(sd) <= FUNC_PLAY_VALUE))
+#else
+  #define HAS_REPEAT_PARAM(sd) (CFN_FUNC(sd) == FUNC_PLAY_SOUND)
+#endif
+
+enum ResetFunctionParam {
+  FUNC_RESET_TIMER1,
+  FUNC_RESET_TIMER2,
+  FUNC_RESET_ALL,
+#if defined(FRSKY)
+  FUNC_RESET_TELEMETRY,
+#endif
+#if ROTARY_ENCODERS > 0
+  FUNC_RESET_ROTENC1,
+#endif
+#if ROTARY_ENCODERS > 1
+  FUNC_RESET_ROTENC2,
+#endif
+  FUNC_RESET_PARAMS_COUNT,
+  FUNC_RESET_PARAM_LAST = FUNC_RESET_PARAMS_COUNT-1
+};
+
+enum AdjustGvarFunctionParam {
+  FUNC_ADJUST_GVAR_CONSTANT,
+  FUNC_ADJUST_GVAR_SOURCE,
+  FUNC_ADJUST_GVAR_GVAR,
+  FUNC_ADJUST_GVAR_INC,
+};
+
+#if defined(CPUARM)
+#if defined(PCBTARANIS)
+ #define LEN_CFN_NAME 10
+#else
+ #define LEN_CFN_NAME 6
+#endif
+PACK(typedef struct t_CustomFnData { // Function Switches data
+  int8_t  swtch;
+  uint8_t func;
+  PACK(union {
+    char name[LEN_CFN_NAME];
+    struct {
+      int16_t val;
+      int16_t ext1;
+      int16_t ext2;
+    } composite;
+  }) param;
+  uint8_t mode:2;
+  uint8_t active:6;
+}) CustomFnData;
+#define CFN_EMPTY(p)            (!(p)->swtch)
+#define CFN_FUNC(p)             ((p)->func)
+#define CFN_ACTIVE(p)           ((p)->active)
+#define CFN_CH_NUMBER(p)        (CFN_FUNC(p))
+#define CFN_PLAY_REPEAT(p)      ((p)->active)
+#define CFN_PLAY_REPEAT_MUL     1
+#define CFN_PLAY_REPEAT_NOSTART 0x3F
+#define CFN_GVAR_MODE(p)        ((p)->mode)
+#define CFN_PARAM(p)            ((p)->param.composite.val)
+#define CFN_RESET(p)            (p->active = 0, memset(&(p)->param, 0, sizeof((p)->param)))
+#else
+PACK(typedef struct t_CustomFnData {
+  int8_t  swtch; // input
+  union {
+    struct {
+      uint8_t param:3;
+      uint8_t func:5;
+    } func_param;
+
+    struct {
+      uint8_t active:1;
+      uint8_t param:2;
+      uint8_t func:5;
+    } func_param_enable;
+
+    struct {
+      uint8_t active:1;
+      uint8_t func:7;
+    } func_safety;
+  } internal;
+  uint8_t param;
+}) CustomFnData;
+#define CFN_FUNC(p)         ((p)->internal.func_param.func)
+#define CFN_ACTIVE(p)       ((p)->internal.func_param_enable.active)
+#define CFN_CH_NUMBER(p)    ((p)->internal.func_safety.func)
+#define CFN_PLAY_REPEAT(p)  ((p)->internal.func_param.param)
+#define CFN_PLAY_REPEAT_MUL 10
+#define CFN_GVAR_MODE(p)    ((p)->internal.func_param_enable.param)
+#define CFN_PARAM(p)        ((p)->param)
+#define CFN_RESET(p)        ((p)->internal.func_param_enable.active = 0, CFN_PARAM(p) = 0)
+#endif
+
 #if defined(FSPLASH) || defined(XSPLASH)
   #define SPLASH_MODE uint8_t splashMode:3
 #else
@@ -350,6 +504,8 @@ PACK(typedef struct t_EEGeneral {
   EXTRA_GENERAL_FIELDS
 
   swstate_t switchUnlockStates;
+
+  ARM_FIELD(CustomFnData customFunctions[NUM_CFN])
 
 }) EEGeneral;
 
@@ -658,152 +814,6 @@ PACK(typedef struct t_CustomSwData { // Custom Switches data
   uint8_t func:4;
   uint8_t andsw:4;
 }) CustomSwData;
-#endif
-
-enum Functions {
-#if defined(CPUARM)
-  FUNC_SAFETY_CH1,
-  FUNC_SAFETY_CH16=FUNC_SAFETY_CH1+15,
-#else
-  FUNC_SAFETY_GROUP1,
-  FUNC_SAFETY_GROUP2,
-  FUNC_SAFETY_GROUP3,
-  FUNC_SAFETY_GROUP4,
-#endif
-  FUNC_TRAINER,
-  FUNC_TRAINER_RUD,
-  FUNC_TRAINER_ELE,
-  FUNC_TRAINER_THR,
-  FUNC_TRAINER_AIL,
-  FUNC_INSTANT_TRIM,
-  FUNC_PLAY_SOUND,
-#if !defined(PCBTARANIS)
-  FUNC_HAPTIC,
-#endif
-  FUNC_RESET,
-  FUNC_VARIO,
-  FUNC_PLAY_TRACK,
-#if !defined(CPUARM)
-  FUNC_PLAY_BOTH,
-#endif
-  FUNC_PLAY_VALUE,
-#if !defined(PCBSTD)
-  FUNC_LOGS,
-#endif
-#if defined(CPUARM)
-  FUNC_VOLUME,
-#endif
-  FUNC_BACKLIGHT,
-#if defined(CPUARM)
-  FUNC_BACKGND_MUSIC,
-  FUNC_BACKGND_MUSIC_PAUSE,
-#endif
-#if defined(GVARS)
-  FUNC_ADJUST_GV1,
-  FUNC_ADJUST_GVLAST = (FUNC_ADJUST_GV1 + (MAX_GVARS-1)),
-#endif
-#if defined(DEBUG)
-  FUNC_TEST, // should remain the last before MAX as not added in companion9x
-#endif
-  FUNC_MAX
-};
-
-#if defined(GVARS)
-  #define IS_ADJUST_GV_FUNCTION(sd)  (CFN_FUNC(sd) >= FUNC_ADJUST_GV1 && CFN_FUNC(sd) <= FUNC_ADJUST_GVLAST)
-#else
-  #define IS_ADJUST_GV_FUNCTION(sd)  (0)
-#endif
-
-#if defined(VOICE)
-  #define HAS_REPEAT_PARAM(sd) (CFN_FUNC(sd) == FUNC_PLAY_SOUND || (CFN_FUNC(sd) >= FUNC_PLAY_TRACK && CFN_FUNC(sd) <= FUNC_PLAY_VALUE))
-#else
-  #define HAS_REPEAT_PARAM(sd) (CFN_FUNC(sd) == FUNC_PLAY_SOUND)
-#endif
-
-enum ResetFunctionParam {
-  FUNC_RESET_TIMER1,
-  FUNC_RESET_TIMER2,
-  FUNC_RESET_ALL,
-#if defined(FRSKY)
-  FUNC_RESET_TELEMETRY,
-#endif
-#if ROTARY_ENCODERS > 0
-  FUNC_RESET_ROTENC1,
-#endif
-#if ROTARY_ENCODERS > 1
-  FUNC_RESET_ROTENC2,
-#endif
-  FUNC_RESET_PARAMS_COUNT,
-  FUNC_RESET_PARAM_LAST = FUNC_RESET_PARAMS_COUNT-1
-};
-
-enum AdjustGvarFunctionParam {
-  FUNC_ADJUST_GVAR_CONSTANT,
-  FUNC_ADJUST_GVAR_SOURCE,
-  FUNC_ADJUST_GVAR_GVAR,
-  FUNC_ADJUST_GVAR_INC,
-};
-
-#if defined(CPUARM)
-#if defined(PCBTARANIS)
- #define LEN_CFN_NAME 10
-#else
- #define LEN_CFN_NAME 6
-#endif
-PACK(typedef struct t_CustomFnData { // Function Switches data
-  int8_t  swtch;
-  uint8_t func;
-  PACK(union {
-    char name[LEN_CFN_NAME];
-    struct {
-      int16_t val;
-      int16_t ext1;
-      int16_t ext2;
-    } composite;
-  }) param;
-  uint8_t mode:2;
-  uint8_t active:6;
-}) CustomFnData;
-#define CFN_EMPTY(p)            (!(p)->swtch)
-#define CFN_FUNC(p)             ((p)->func)
-#define CFN_ACTIVE(p)           ((p)->active)
-#define CFN_CH_NUMBER(p)        (CFN_FUNC(p))
-#define CFN_PLAY_REPEAT(p)      ((p)->active)
-#define CFN_PLAY_REPEAT_MUL     1
-#define CFN_PLAY_REPEAT_NOSTART 0x3F
-#define CFN_GVAR_MODE(p)        ((p)->mode)
-#define CFN_PARAM(p)            ((p)->param.composite.val)
-#define CFN_RESET(p)            (p->active = 0, memset(&(p)->param, 0, sizeof((p)->param)))
-#else
-PACK(typedef struct t_CustomFnData {
-  int8_t  swtch; // input
-  union {
-    struct {
-      uint8_t param:3;
-      uint8_t func:5;
-    } func_param;
-
-    struct {
-      uint8_t active:1;
-      uint8_t param:2;
-      uint8_t func:5;
-    } func_param_enable;
-
-    struct {
-      uint8_t active:1;
-      uint8_t func:7;
-    } func_safety;
-  } internal;
-  uint8_t param;
-}) CustomFnData;
-#define CFN_FUNC(p)         ((p)->internal.func_param.func)
-#define CFN_ACTIVE(p)       ((p)->internal.func_param_enable.active)
-#define CFN_CH_NUMBER(p)    ((p)->internal.func_safety.func)
-#define CFN_PLAY_REPEAT(p)  ((p)->internal.func_param.param)
-#define CFN_PLAY_REPEAT_MUL 10
-#define CFN_GVAR_MODE(p)    ((p)->internal.func_param_enable.param)
-#define CFN_PARAM(p)        ((p)->param)
-#define CFN_RESET(p)        ((p)->internal.func_param_enable.active = 0, CFN_PARAM(p) = 0)
 #endif
 
 enum TelemetryUnit {
@@ -1409,14 +1419,6 @@ PACK(typedef struct t_ModelHeader {
   MODELDATA_BITMAP
 }) ModelHeader;
 
-#if defined (CPUARM)
-  #define ARM_FIELD(x) x;
-  #define AVR_FIELD(x)
-#else
-  #define ARM_FIELD(x)
-  #define AVR_FIELD(x) x;
-#endif
-
 PACK(typedef struct t_ModelData {
   ModelHeader header;
   TimerData timers[MAX_TIMERS];
@@ -1457,6 +1459,8 @@ PACK(typedef struct t_ModelData {
   ROTARY_ENCODER_ARRAY_EXTRA
 
   MODELDATA_EXTRA
+
+  ARM_FIELD(uint32_t globalFunctions)
 
 }) ModelData;
 

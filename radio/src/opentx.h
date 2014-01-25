@@ -1225,8 +1225,8 @@ int applyCurve(int x, int8_t idx);
 void applyExpos(int16_t *anas, uint8_t mode APPLY_EXPOS_EXTRA_PARAMS_INC);
 int16_t applyLimits(uint8_t channel, int32_t value);
 
+void evalInputs(uint8_t mode);
 uint16_t anaIn(uint8_t chan);
-int16_t thrAnaIn(uint8_t chan);
 extern int16_t calibratedStick[NUM_STICKS+NUM_POTS];
 
 #define FLASH_DURATION 20 /*200ms*/

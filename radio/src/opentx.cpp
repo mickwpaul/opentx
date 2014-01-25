@@ -2136,42 +2136,63 @@ void checkLowEEPROM()
 }
 #endif
 
+// #define INPUT_WARNINGS_GENERATE_SIMULATED_DATA
+// the latests deliveries from 9x transmitters (since 2 years now, 2014) do not stop sending if no pulses are generated.
+// This fact totally breaks the nice throttle and switch warning concept, because even we prevent sending pulses the
+// transmitter modul ignores this, and continous to send the last value or 0 at beginning. And 0 means in the middle of throttle -> 50%.
+// To cope with this situation, we need a new concept how to handle throttle and switch warnings.
+// My solution is, not to stop pulses at all. In warning situation the input of the appropriate channels are ignored and
+// replaced with a value which wouldn't generate the warning, e.g. for throttle -100%
+// Because this new concept is also compatible with the better (older) transmitter we can enable it by default and let the user choose if
+// he want's the old handling or new one.
+// However this option is future not yet implemented
+
 void checkTHR()
 {
   if (g_model.disableThrottleWarning) return;
 
-  uint8_t thrchn = (2-(stickMode&1)); //stickMode=0123 -> thr=2121
+  uint8_t thrchn = ((g_model.thrTraceSrc==0)||(g_model.thrTraceSrc>NUM_POTS)) ? 
+    THR_STICK : g_model.thrTraceSrc+NUM_STICKS-1;
+  // throttle channel is either the stick according stick mode (already handled in evalInputs)
+  // or P1 to P3;
+  // in case an output channel is choosen as throttle source (thrTraceSrc>NUM_POTS) we assume the throttle stick is the input
+  // no other information avaialbe at the moment, and good enough to my option (otherwise too much exceptions...)  
+  
 
-#ifdef SIMU
-  int16_t lowLim = THRCHK_DEADBAND - 1024 ;
-#else
-  getADC();   // if thr is down - do not display warning at all
-  int16_t lowLim = g_eeGeneral.calibMid[thrchn];
-  lowLim = (g_model.throttleReversed ? - lowLim - g_eeGeneral.calibSpanPos[thrchn] : lowLim - g_eeGeneral.calibSpanNeg[thrchn]);
-  lowLim += THRCHK_DEADBAND;
+#ifdef INPUT_WARNINGS_GENERATE_SIMULATED_DATA
+  int16_t v = calibratedStick[thrchn];
+
+  // todo check if throttle check should be done in current state
+  if (v<=(THRCHK_DEADBAND-1024)) {
+    calibratedStick[thrchn]=-1024;
+#if !defined(PCBTARANIS)    
+    rawAnas[thrchn]=anas[thrchn]=calibratedStick[thrchn];
 #endif
-  int16_t v = thrAnaIn(thrchn);
-
-  if (v<=lowLim) return;
-
-  // first - display warning
-  MESSAGE(STR_THROTTLEWARN, STR_THROTTLENOTIDLE, STR_PRESSANYKEYTOSKIP, AU_THROTTLE_ALERT);
-
-  while (1)
-  {
+    // todo: disable warning state
+    return;
+  } else {
+     MESSAGE(STR_THROTTLEWARN, STR_THROTTLENOTIDLE, STR_PRESSANYKEYTOSKIP, AU_THROTTLE_ALERT);
+  }
+#else
+  evalInputs(e_perout_mode_notrainer); // let do evalInputs do the job
+  int16_t v = calibratedStick[thrchn];   
+  if (v<=(THRCHK_DEADBAND-1024)) return;  // prevent warning if throttle input OK
+  // first - display warning; also deletes inputs if any have been before
+  MESSAGE(STR_THROTTLEWARN, STR_THROTTLENOTIDLE, STR_PRESSANYKEYTOSKIP, AU_THROTTLE_ALERT);  
+  
+  while (1)  {
       SIMU_SLEEP(1);
-
       getADC();
 
-      int16_t v = thrAnaIn(thrchn);
-
-      if (pwrCheck()==e_power_off || keyDown() || v<=lowLim)
+      evalInputs(e_perout_mode_notrainer); // let do evalInputs do the job
+      v = calibratedStick[thrchn];   
+      if (pwrCheck()==e_power_off || keyDown() || v<=(THRCHK_DEADBAND-1024))
         break;
-
+        
       checkBacklight();
-
       wdt_reset();
-  }
+  }//endwhile
+#endif
 }
 
 void checkAlarm() // added by Gohst
@@ -2495,12 +2516,6 @@ uint16_t BandGap = 2040 ;
 #elif defined(PCBSTD)
 uint16_t BandGap ;
 #endif
-
-int16_t thrAnaIn(uint8_t chan)
-{
-  int16_t v = anaIn(chan);
-  return (g_model.throttleReversed) ? -v : v;
-}
 
 #if !defined(SIMU)
 uint16_t anaIn(uint8_t chan)

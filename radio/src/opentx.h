@@ -820,6 +820,22 @@ enum PerOutMode {
   e_perout_mode_noinput = e_perout_mode_notrainer+e_perout_mode_notrims+e_perout_mode_nosticks
 };
 
+// for test
+// #define INPUT_WARNINGS_GENERATE_SIM_DATA
+
+#ifdef INPUT_WARNINGS_GENERATE_SIM_DATA
+extern uint8_t checkWarningState;
+
+enum InputWarningStates {
+  e_InWarnBegin               = 0,
+  e_InWarnThrottleWarnActive  = 1,
+  e_InWarnStartSwitchWarn     = 2,
+  // e_InWarnSwitchWarnActive    = 3,
+  e_InWarnFinished            = 3,
+};
+#endif
+
+
 // Fiddle to force compiler to use a pointer
 #if defined(CPUARM) || defined(SIMU)
   #define FORCE_INDIRECT(ptr)

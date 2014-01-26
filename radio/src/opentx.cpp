@@ -51,6 +51,9 @@ int24_t act   [MAX_MIXERS] = {0};
 SwOn    swOn  [MAX_MIXERS]; // TODO better name later...
 
 uint8_t mixWarning;
+#ifdef INPUT_WARNINGS_GENERATE_SIM_DATA
+uint8_t checkWarningState;
+#endif
 
 #if defined(CPUARM)
 #define MENUS_STACK_SIZE    2000
@@ -2111,8 +2114,12 @@ void checkAll()
   checkLowEEPROM();
 #endif
 
+#ifdef INPUT_WARNINGS_GENERATE_SIM_DATA
+  checkWarningState=e_InWarnBegin;
+#else
   checkTHR();
   checkSwitches();
+#endif
 
 #if defined(PCBTARANIS)
   if (modelHasNotes() && g_model.displayText) {
@@ -2126,6 +2133,17 @@ void checkAll()
   clearKeyEvents();
 }
 
+#ifdef INPUT_WARNINGS_GENERATE_SIM_DATA
+void checkInMix()
+{
+  if (checkWarningState>=e_InWarnFinished) return;   // no more checks
+
+  if (checkWarningState<e_InWarnStartSwitchWarn) checkTHR();
+  else checkSwitches();
+}
+#endif
+
+
 #if !defined(PCBSKY9X)
 void checkLowEEPROM()
 {
@@ -2136,7 +2154,7 @@ void checkLowEEPROM()
 }
 #endif
 
-// #define INPUT_WARNINGS_GENERATE_SIMULATED_DATA
+// #define INPUT_WARNINGS_GENERATE_SIM_DATA
 // the latests deliveries from 9x transmitters (since 2 years now, 2014) do not stop sending if no pulses are generated.
 // This fact totally breaks the nice throttle and switch warning concept, because even we prevent sending pulses the
 // transmitter modul ignores this, and continous to send the last value or 0 at beginning. And 0 means in the middle of throttle -> 50%.
@@ -2145,12 +2163,10 @@ void checkLowEEPROM()
 // replaced with a value which wouldn't generate the warning, e.g. for throttle -100%
 // Because this new concept is also compatible with the better (older) transmitter we can enable it by default and let the user choose if
 // he want's the old handling or new one.
-// However this option is future not yet implemented
+
 
 void checkTHR()
 {
-  if (g_model.disableThrottleWarning) return;
-
   uint8_t thrchn = ((g_model.thrTraceSrc==0)||(g_model.thrTraceSrc>NUM_POTS)) ? 
     THR_STICK : g_model.thrTraceSrc+NUM_STICKS-1;
   // throttle channel is either the stick according stick mode (already handled in evalInputs)
@@ -2159,21 +2175,28 @@ void checkTHR()
   // no other information avaialbe at the moment, and good enough to my option (otherwise too much exceptions...)  
   
 
-#ifdef INPUT_WARNINGS_GENERATE_SIMULATED_DATA
+#ifdef INPUT_WARNINGS_GENERATE_SIM_DATA
   int16_t v = calibratedStick[thrchn];
-
-  // todo check if throttle check should be done in current state
-  if (v<=(THRCHK_DEADBAND-1024)) {
+  if ((v<=(THRCHK_DEADBAND-1024)) || g_model.disableThrottleWarning) {
+    checkWarningState=e_InWarnStartSwitchWarn;
+    // checkWarningState=e_InWarnFinished;
+  } else {
     calibratedStick[thrchn]=-1024;
 #if !defined(PCBTARANIS)    
     rawAnas[thrchn]=anas[thrchn]=calibratedStick[thrchn];
-#endif
-    // todo: disable warning state
-    return;
-  } else {
-     MESSAGE(STR_THROTTLEWARN, STR_THROTTLENOTIDLE, STR_PRESSANYKEYTOSKIP, AU_THROTTLE_ALERT);
+#endif  
+    if (checkWarningState<e_InWarnThrottleWarnActive) {
+      // warning message is not yet visible
+      MESSAGE(STR_THROTTLEWARN, STR_THROTTLENOTIDLE, STR_PRESSANYKEYTOSKIP, AU_THROTTLE_ALERT);
+      checkWarningState=e_InWarnThrottleWarnActive;
+    } else if (pwrCheck()==e_power_off || keyDown()) {
+      // key pressed -> disable warning
+      checkWarningState=e_InWarnStartSwitchWarn;
+      // checkWarningState=e_InWarnFinished;
+    }
   }
 #else
+  if (g_model.disableThrottleWarning) return;
   evalInputs(e_perout_mode_notrainer); // let do evalInputs do the job
   int16_t v = calibratedStick[thrchn];   
   if (v<=(THRCHK_DEADBAND-1024)) return;  // prevent warning if throttle input OK
@@ -2195,6 +2218,7 @@ void checkTHR()
 #endif
 }
 
+
 void checkAlarm() // added by Gohst
 {
   if (g_eeGeneral.disableAlarmWarning) return;
@@ -2209,12 +2233,13 @@ void checkSwitches()
   uint8_t bad_pots = 0, last_bad_pots = 0xff;
 #endif
 
+#ifndef INPUT_WARNINGS_GENERATE_SIM_DATA
   while (1) {
 
 #if defined(TELEMETRY_MOD_14051) || defined(PCBTARANIS)
     getADC();
 #endif
-
+#endif  //INPUT_WARNINGS_GENERATE_SIM_DATA
     getMovedSwitch();
   
     uint8_t warn = false;
@@ -2243,7 +2268,14 @@ void checkSwitches()
           warn = true;
 #endif
 
+#ifdef INPUT_WARNINGS_GENERATE_SIM_DATA
+    if (!warn) {
+      checkWarningState=e_InWarnFinished;
+      return;
+    }
+#else
     if(!warn) return;
+#endif
 
     // first - display warning
 #if defined(PCBTARANIS)
@@ -2294,7 +2326,14 @@ void checkSwitches()
       lcdRefresh();
       last_bad_switches = switches_states;
     }
-
+    
+#ifdef INPUT_WARNINGS_GENERATE_SIM_DATA
+    // checkWarningState=e_InWarnSwitchWarnActive; not needed, because redraw is prevented with last switch compare
+    if (pwrCheck()==e_power_off || keyDown()) {
+      checkWarningState=e_InWarnFinished;
+      // return; // Usb on or power off
+    }    
+#else
     if (pwrCheck()==e_power_off || keyDown()) return; // Usb on or power off
 
     checkBacklight();
@@ -2302,7 +2341,8 @@ void checkSwitches()
     wdt_reset();
 
     SIMU_SLEEP(1);
-  }
+  }  // endwhile
+#endif  
 }
 
 void alert(const pm_char * t, const pm_char *s MESSAGE_SOUND_ARG)
@@ -3396,6 +3436,10 @@ void perOut(uint8_t mode, uint8_t tick10ms)
 {
   evalInputs(mode);
   
+#ifdef INPUT_WARNINGS_GENERATE_SIM_DATA
+  checkInMix();
+#endif
+  
 #if defined(HELI)
   if (g_model.swashR.value) {
     uint32_t v = ((int32_t)anas[ELE_STICK]*anas[ELE_STICK] + (int32_t)anas[AIL_STICK]*anas[AIL_STICK]);
@@ -4315,6 +4359,10 @@ void perMain()
     currentSpeakerVolume = requiredSpeakerVolume;
     setVolume(currentSpeakerVolume);
   }
+#endif
+
+#ifdef INPUT_WARNINGS_GENERATE_SIM_DATA
+  if (checkWarningState<e_InWarnFinished) return;   // don't do menu's until throttle and switch warnings are handled
 #endif
 
   if (!usbPlugged()) {
